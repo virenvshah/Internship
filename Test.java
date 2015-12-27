@@ -13,18 +13,7 @@ import java.io.PrintStream;
 /* contains information about the trip such as the data saved and contains 
  * functions like reset trip stats and turn the vpn on */
 
-class Trip {
-    private int dataSavedPercentage; /* Percentage Data Savings */
-
-    void setDataSavedPercentage(String dataSavedPercentage) {
-        /* getting rid of the percentage sign (from 78% to 78) */
-        this.dataSavedPercentage = Integer.parseInt(dataSavedPercentage
-                .substring(0, dataSavedPercentage.length() - 1));
-    }
-
-    int dataSavedPercentage() {
-        return dataSavedPercentage; /* returns the data saved percentage */
-    }
+class Vpn {
 
     int turnVpnOn(WebDriver driver) {
         if (driver
@@ -39,6 +28,20 @@ class Trip {
         }
 
         return 0;
+    }
+}
+
+class Trip {
+    private int dataSavedPercentage; /* Percentage Data Savings */
+
+    void setDataSavedPercentage(String dataSavedPercentage) {
+        /* getting rid of the percentage sign (from 78% to 78) */
+        this.dataSavedPercentage = Integer.parseInt(dataSavedPercentage
+                .substring(0, dataSavedPercentage.length() - 1));
+    }
+
+    int dataSavedPercentage() {
+        return dataSavedPercentage; /* returns the data saved percentage */
     }
 
     /* resets the Trip stats */
@@ -160,210 +163,168 @@ class RegistrationTestSuite extends TestSuite {
 /* Checks if data savings increase when the VPN is on and cnn.com is opened */
 class VpnTestSuite extends TestSuite {
 
+    class WebsiteList {
+        String urls[] = { "http://edition.cnn.com/", "http://apache.org/" };
+        boolean isStatic[] = { false, true }; /* true if static, false if dynamic */
+    }
+
+    WebsiteList websites;
+
     VpnTestSuite(String baseUrl, PrintStream printStream,
             String testSuiteName) {
         super(baseUrl, printStream, testSuiteName);
+        websites = new WebsiteList();
     }
 
     Result run(WebDriver driver, WebDriverWait wait, String addition) {
+        int i;
+        
         printLog.println("VPN Test Suite started!");
-        String url = baseUrl + addition;
-        driver.get(url); /* Opens the Dashnet dashboard */
-        driver.manage().timeouts().implicitlyWait(5,
-                TimeUnit.SECONDS); /* implicit wait */
-        Trip trip = new Trip();
 
-        /* The page takes some time to load so I wait for 6 seconds */
-        try {
-            Thread.sleep(6000);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        } catch (Exception anyException) {
-            runResult = new Result(false, anyException);
-            return runResult;
-        }
+        for (i = 0; i < websites.urls.length; ++i) {    /* testing all urls in the website class */
+            String url = baseUrl + addition;
+            driver.get(url); /* Opens the Dashnet dashboard */
+            driver.manage().timeouts().implicitlyWait(5,
+                    TimeUnit.SECONDS); /* implicit wait */
+            Trip trip = new Trip();
+            Vpn vpn = new Vpn();
 
-        trip.resetTrip(driver); /* Resets the trip stats */
+            /* The page takes some time to load so I wait for 6 seconds */
+            try {
+                Thread.sleep(6000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            } catch (Exception anyException) {
+                runResult = new Result(false, anyException);
+                return runResult;
+            }
 
-        /* wait again for six seconds */
-        try {
-            Thread.sleep(6000);
-        } catch (InterruptedException f) {
-            f.printStackTrace();
-        } catch (Exception anyException) {
-            runResult = new Result(false, anyException);
-            return runResult;
-        }
+            trip.resetTrip(driver); /* Resets the trip stats */
 
-        /* Ensures that the trip stats have been reset */
-        if (!"0%".equals(
-                driver.findElement(By.cssSelector("h1.all_time_savings"))
-                        .getText())) {
+            /* wait again for six seconds */
+            try {
+                Thread.sleep(6000);
+            } catch (InterruptedException f) {
+                f.printStackTrace();
+            } catch (Exception anyException) {
+                runResult = new Result(false, anyException);
+                return runResult;
+            }
 
-            runResult = new Result(false);
-            runResult.errorMessage = driver
-                    .findElement(By.cssSelector("h1.all_time_savings"))
-                    .getText() + "The trip stats were not reset";
+            /* Ensures that the trip stats have been reset */
+            if (!"0%".equals(
+                    driver.findElement(By.cssSelector("h1.all_time_savings"))
+                            .getText())) {
 
-            return runResult;
-        }
+                runResult = new Result(false);
+                runResult.errorMessage = driver
+                        .findElement(By.cssSelector("h1.all_time_savings"))
+                        .getText() + "The trip stats were not reset";
 
-        /* Turns on the VPN */
-        trip.turnVpnOn(driver);
+                return runResult;
+            }
 
-        try {
-            Thread.sleep(6000);
-        } catch (InterruptedException f) {
-            f.printStackTrace();
-        } catch (Exception anyException) {
-            runResult = new Result(false, anyException);
-            return runResult;
-        }
+            /* Turns on the VPN */
+            vpn.turnVpnOn(driver);
+            try {
+                Thread.sleep(6000);
 
-        /* opening cnn.com */
-        driver.get("http://edition.cnn.com/");
-        driver.get(url);
+            } catch (InterruptedException f) {
+                f.printStackTrace();
+            } catch (Exception anyException) {
+                runResult = new Result(false, anyException);
+                return runResult;
+            }
 
-        /* checks if data savings have increased */
-        driver.findElement(By.cssSelector("a#trip_button")).click();
-        try {
-            Thread.sleep(6000);
-        } catch (InterruptedException f) {
-            f.printStackTrace();
-        } catch (Exception anyException) {
-            runResult = new Result(false, anyException);
-            return runResult;
-        }
+            if (websites.isStatic[i] == true) {
+                /* opening cnn.com */
+                driver.get(websites.urls[i]);
+                driver.get(url);
 
-        trip.setDataSavedPercentage(driver
-                .findElement(By.cssSelector("h1.all_time_savings")).getText());
-        if (trip.dataSavedPercentage() > 0) {
-            runResult = new Result(true);
-            runResult.errorMessage = "VPN test case passed!";
-        } else {
-            runResult = new Result(false);
-            runResult.errorMessage = "Data Savings did not increase!";
-        }
+                /* checks if data savings have increased */
+                driver.findElement(By.cssSelector("a#trip_button")).click();
+                try {
+                    Thread.sleep(6000);
+                } catch (InterruptedException f) {
+                    f.printStackTrace();
+                } catch (Exception anyException) {
+                    runResult = new Result(false, anyException);
+                    return runResult;
+                }
 
-        return runResult;
-    }
-}
+                trip.setDataSavedPercentage(driver
+                        .findElement(By.cssSelector("h1.all_time_savings"))
+                        .getText());
+                if (trip.dataSavedPercentage() > 0) {
+                    runResult = new Result(true);
+                    runResult.errorMessage = "VPN test case passed!";
+                } else {
+                    runResult = new Result(false);
+                    runResult.errorMessage = "Data Savings did not increase for dynamic website!";
+                    return runResult;
+                }
+            } else {
+                Trip firstOpen = new Trip();
 
-class StaticPageTestSuite extends TestSuite {
+                driver.get(websites.urls[i]);
+                driver.get(url);
 
-    StaticPageTestSuite(String baseUrl, PrintStream printStream,
-            String testSuiteName) {
-        super(baseUrl, printStream, testSuiteName);
-    }
+                driver.findElement(By.cssSelector("a#trip_button")).click();
+                try {
+                    Thread.sleep(6000);
+                } catch (InterruptedException f) {
+                    f.printStackTrace();
+                } catch (Exception anyException) {
+                    runResult = new Result(false, anyException);
+                    return runResult;
+                }
 
-    Result run(WebDriver driver, WebDriverWait wait, String addition) {
-        printLog.println("Static Page Test Suite started!");
-        String url = baseUrl + addition;
-        driver.get(url); /* Opens the Dashnet dashboard */
-        driver.manage().timeouts().implicitlyWait(5,
-                TimeUnit.SECONDS); /* implicit wait */
-        Trip firstOpen = new Trip();
+                /* saving the data saved percentage trip stat in firstOpen */
 
-        /* The page takes some time to load so I wait for 6 seconds */
-        try {
-            Thread.sleep(6000);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        } catch (Exception anyException) {
-            runResult = new Result(false, anyException);
-            return runResult;
-        }
+                firstOpen.setDataSavedPercentage(driver
+                        .findElement(By.cssSelector("h1.all_time_savings"))
+                        .getText());
 
-        firstOpen.resetTrip(driver); /* Resets the trip stats */
+                /* opening apache.com a second time */
+                Trip secondOpen = new Trip();
 
-        /* wait again for six seconds */
-        try {
-            Thread.sleep(6000);
-        } catch (InterruptedException f) {
-            f.printStackTrace();
-        } catch (Exception anyException) {
-            runResult = new Result(false, anyException);
-            return runResult;
-        }
+                driver.get("http://apache.org/");
+                driver.get(url);
 
-        /* Ensures that the trip stats have been reset */
-        if (!"0%".equals(
-                driver.findElement(By.cssSelector("h1.all_time_savings"))
-                        .getText())) {
+                driver.findElement(By.cssSelector("a#trip_button")).click();
 
-            runResult = new Result(false);
-            runResult.errorMessage = driver
-                    .findElement(By.cssSelector("h1.all_time_savings"))
-                    .getText() + "The trip stats were not reset";
+                try {
+                    Thread.sleep(6000);
+                } catch (InterruptedException f) {
+                    f.printStackTrace();
+                } catch (Exception anyException) {
+                    runResult = new Result(false, anyException);
+                    return runResult;
+                }
 
-            return runResult;
-        }
+                /* saving the data saved percentage trip stat in secondOpen */
 
-        firstOpen.turnVpnOn(driver); /* turn the VPN on */
+                secondOpen.setDataSavedPercentage(driver
+                        .findElement(By.cssSelector("h1.all_time_savings"))
+                        .getText());
 
-        /* wait for 6 seconds */
-
-        try {
-            Thread.sleep(6000);
-        } catch (InterruptedException f) {
-            f.printStackTrace();
-        } catch (Exception anyException) {
-            runResult = new Result(false, anyException);
-            return runResult;
-        }
-
-        /* opening apache.org */
-        driver.get("http://apache.org/");
-        driver.get(url);
-
-        driver.findElement(By.cssSelector("a#trip_button")).click();
-        try {
-            Thread.sleep(6000);
-        } catch (InterruptedException f) {
-            f.printStackTrace();
-        } catch (Exception anyException) {
-            runResult = new Result(false, anyException);
-            return runResult;
-        }
-
-        /* saving the data saved percentage trip stat in firstOpen */
-
-        firstOpen.setDataSavedPercentage(driver
-                .findElement(By.cssSelector("h1.all_time_savings")).getText());
-
-        /* opening apache.com a second time */
-        Trip secondOpen = new Trip();
-
-        driver.get("http://apache.org/");
-        driver.get(url);
-
-        driver.findElement(By.cssSelector("a#trip_button")).click();
-
-        try {
-            Thread.sleep(6000);
-        } catch (InterruptedException f) {
-            f.printStackTrace();
-        } catch (Exception anyException) {
-            runResult = new Result(false, anyException);
-            return runResult;
-        }
-
-        /* saving the data saved percentage trip stat in secondOpen */
-
-        secondOpen.setDataSavedPercentage(driver
-                .findElement(By.cssSelector("h1.all_time_savings")).getText());
-
-        if (firstOpen.dataSavedPercentage() < secondOpen /* the data saved is */
-                .dataSavedPercentage()) { /* more the second time */
-            runResult = new Result(true);
-        } else {
-            runResult = new Result(false);
-            runResult.errorMessage = "Data Savings did not increase after opening the second time!";
+                if (firstOpen.dataSavedPercentage() < secondOpen /*
+                                                                  * the data
+                                                                  * saved is
+                                                                  */
+                        .dataSavedPercentage()) { /* more the second time */
+                    runResult = new Result(true);
+                } else {
+                    runResult = new Result(false);
+                    runResult.errorMessage = "Data Savings did not increase after opening the second time!";
+                }
+            }
         }
 
         return runResult;
     }
 }
+
 /*
  * This is the top level Test class which instantiates multiple test suite
  * objects to test the functionality of the Dashnet VPN client. The tests use
@@ -384,8 +345,6 @@ public class Test {
                 printStream, "Registration Test Suite ");
         VpnTestSuite vpnTests = new VpnTestSuite(baseUrl, printStream,
                 "VPN Test Suite ");
-        StaticPageTestSuite staticTests = new StaticPageTestSuite(baseUrl,
-                printStream, "Static Page Test Suite ");
 
         /* Registration tests */
         printStream.println(regTests.name()
@@ -394,8 +353,5 @@ public class Test {
         /* VPN Tests */
         printStream.println(vpnTests.name()
                 + vpnTests.run(driver, wait, "#index").resultString());
-
-        printStream.println(staticTests.name()
-                + staticTests.run(driver, wait, "#index").resultString());
     }
 }
