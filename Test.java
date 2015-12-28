@@ -58,9 +58,9 @@ class Trip {
  * TestSuites.
  */
 class Result {
-    private boolean pass; /*
-                           * true if function passed; false if function failed
-                           */
+    boolean pass; /*
+                   * true if function passed; false if function failed
+                   */
     private Exception e;
     private boolean exception; /* true if function failed due to exception */
     String errorMessage;
@@ -160,52 +160,61 @@ class RegistrationTestSuite extends TestSuite {
     }
 }
 
-/* Checks if data savings increase when the VPN is on and cnn.com is opened */
+/*
+ * Checks if data savings increase when the VPN is on and dynamic website is
+ * opened. Checks if data savings when the VPN is on and a static website is
+ * opened a second time than when the static website is opened the first time.
+ */
 class VpnTestSuite extends TestSuite {
 
-    class WebsiteList {
-        String urls[] = { "http://edition.cnn.com/", "http://apache.org/" };
-        boolean isStatic[] = { false, true }; /* true if static, false if dynamic */
+    /* websites that are tested */
+    class Website {
+        String url;
+        boolean isStatic; /* true if static, false if dynamic */
     }
-
-    WebsiteList websites;
 
     VpnTestSuite(String baseUrl, PrintStream printStream,
             String testSuiteName) {
         super(baseUrl, printStream, testSuiteName);
-        websites = new WebsiteList();
     }
 
     Result run(WebDriver driver, WebDriverWait wait, String addition) {
         int i;
-        
+        Website websites[] = new Website[2];
+
+        websites[0] = new Website();
+        websites[0].url = "http://edition.cnn.com/";
+        websites[0].isStatic = false;
+        websites[1] = new Website();
+        websites[1].url = "http://apache.org/";
+        websites[1].isStatic = true;
+
         printLog.println("VPN Test Suite started!");
 
-        for (i = 0; i < websites.urls.length; ++i) {    /* testing all urls in the website class */
+        for (i = 0; i < websites.length; ++i) { /*
+                                                 * testing all urls in the
+                                                 * website class
+                                                 */
             String url = baseUrl + addition;
             driver.get(url); /* Opens the Dashnet dashboard */
             driver.manage().timeouts().implicitlyWait(5,
                     TimeUnit.SECONDS); /* implicit wait */
-            Trip trip = new Trip();
+            Trip firstOpen = new Trip();
             Vpn vpn = new Vpn();
 
             /* The page takes some time to load so I wait for 6 seconds */
             try {
                 Thread.sleep(6000);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
             } catch (Exception anyException) {
                 runResult = new Result(false, anyException);
                 return runResult;
             }
 
-            trip.resetTrip(driver); /* Resets the trip stats */
+            firstOpen.resetTrip(driver); /* Resets the trip stats */
 
             /* wait again for six seconds */
             try {
                 Thread.sleep(6000);
-            } catch (InterruptedException f) {
-                f.printStackTrace();
             } catch (Exception anyException) {
                 runResult = new Result(false, anyException);
                 return runResult;
@@ -229,33 +238,34 @@ class VpnTestSuite extends TestSuite {
             try {
                 Thread.sleep(6000);
 
-            } catch (InterruptedException f) {
-                f.printStackTrace();
             } catch (Exception anyException) {
                 runResult = new Result(false, anyException);
                 return runResult;
             }
 
-            if (websites.isStatic[i] == true) {
-                /* opening cnn.com */
-                driver.get(websites.urls[i]);
-                driver.get(url);
+            /* opening dynamic/static website */
+            driver.get(websites[i].url);
+            driver.get(url);
 
-                /* checks if data savings have increased */
-                driver.findElement(By.cssSelector("a#trip_button")).click();
-                try {
-                    Thread.sleep(6000);
-                } catch (InterruptedException f) {
-                    f.printStackTrace();
-                } catch (Exception anyException) {
-                    runResult = new Result(false, anyException);
-                    return runResult;
-                }
+            /* checks if data savings have increased */
+            driver.findElement(By.cssSelector("a#trip_button")).click();
+            try {
+                Thread.sleep(6000);
+            } catch (Exception anyException) {
+                runResult = new Result(false, anyException);
+                return runResult;
+            }
 
-                trip.setDataSavedPercentage(driver
-                        .findElement(By.cssSelector("h1.all_time_savings"))
-                        .getText());
-                if (trip.dataSavedPercentage() > 0) {
+            firstOpen.setDataSavedPercentage(
+                    driver.findElement(By.cssSelector("h1.all_time_savings"))
+                            .getText());
+
+            if (websites[i].isStatic == false) { /*
+                                                 * check if data savings
+                                                 * increased
+                                                 */
+
+                if (firstOpen.dataSavedPercentage() > 0) {
                     runResult = new Result(true);
                     runResult.errorMessage = "VPN test case passed!";
                 } else {
@@ -263,29 +273,12 @@ class VpnTestSuite extends TestSuite {
                     runResult.errorMessage = "Data Savings did not increase for dynamic website!";
                     return runResult;
                 }
-            } else {
-                Trip firstOpen = new Trip();
-
-                driver.get(websites.urls[i]);
-                driver.get(url);
-
-                driver.findElement(By.cssSelector("a#trip_button")).click();
-                try {
-                    Thread.sleep(6000);
-                } catch (InterruptedException f) {
-                    f.printStackTrace();
-                } catch (Exception anyException) {
-                    runResult = new Result(false, anyException);
-                    return runResult;
-                }
-
-                /* saving the data saved percentage trip stat in firstOpen */
-
-                firstOpen.setDataSavedPercentage(driver
-                        .findElement(By.cssSelector("h1.all_time_savings"))
-                        .getText());
-
-                /* opening apache.com a second time */
+            } else { /*
+                      * check if data savings are greater the second time a
+                      * static website is opened as compared to the first time
+                      * it was opened
+                      */
+                /* opening a second time */
                 Trip secondOpen = new Trip();
 
                 driver.get("http://apache.org/");
@@ -295,8 +288,6 @@ class VpnTestSuite extends TestSuite {
 
                 try {
                     Thread.sleep(6000);
-                } catch (InterruptedException f) {
-                    f.printStackTrace();
                 } catch (Exception anyException) {
                     runResult = new Result(false, anyException);
                     return runResult;
@@ -307,7 +298,7 @@ class VpnTestSuite extends TestSuite {
                 secondOpen.setDataSavedPercentage(driver
                         .findElement(By.cssSelector("h1.all_time_savings"))
                         .getText());
-
+               
                 if (firstOpen.dataSavedPercentage() < secondOpen /*
                                                                   * the data
                                                                   * saved is
@@ -341,16 +332,22 @@ public class Test {
                                                * can be changed to whatever you
                                                * want
                                                */
+        
         RegistrationTestSuite regTests = new RegistrationTestSuite(baseUrl,
                 printStream, "Registration Test Suite ");
         VpnTestSuite vpnTests = new VpnTestSuite(baseUrl, printStream,
                 "VPN Test Suite ");
 
         /* Registration tests */
+        Result functionResult = regTests.run(driver, wait, "#register");       
         printStream.println(regTests.name()
-                + regTests.run(driver, wait, "#register").resultString());
+                + functionResult.resultString());
+        
+        if (functionResult.pass == false) {
+            return;
+        }
 
-        /* VPN Tests */
+       /* VPN Tests */
         printStream.println(vpnTests.name()
                 + vpnTests.run(driver, wait, "#index").resultString());
     }
