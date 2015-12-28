@@ -281,7 +281,7 @@ class VpnTestSuite extends TestSuite {
                 /* opening a second time */
                 Trip secondOpen = new Trip();
 
-                driver.get("http://apache.org/");
+                driver.get(websites[i].url);
                 driver.get(url);
 
                 driver.findElement(By.cssSelector("a#trip_button")).click();
